@@ -1,0 +1,18 @@
+Parse the voice-assistant command into exactly one JSON object with exactly
+these four keys, in this order: intent, date, time, place.
+
+Valid intents (use exactly one): alarm_set, alarm_query, calendar_set,
+calendar_query, calendar_remove, weather_query, datetime_query,
+recommendation_events.
+
+Slot rules:
+- A slot value is copied exactly as it appears in the command. It is not
+  converted (seven am stays "seven am", it is not changed to 07:00).
+- A slot value is the shortest phrase that carries the meaning, without
+  words such as at, on, in or for.
+- A slot the command does not mention is null. Values must never be invented.
+
+Output ONLY the JSON object. No explanation, no markdown, no extra text.
+
+Command: {command}
+JSON:

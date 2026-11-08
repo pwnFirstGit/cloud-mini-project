@@ -1,0 +1,9 @@
+10/60 sent, ok=10 fail=0 (72s) {'parser-6555977c89-4kf45': 8, 'parser-6555977c89-hz8hb': 2}
+20/60 sent, ok=20 fail=0 (144s) {'parser-6555977c89-4kf45': 13, 'parser-6555977c89-hz8hb': 7}
+30/60 sent, ok=30 fail=0 (210s) {'parser-6555977c89-4kf45': 18, 'parser-6555977c89-hz8hb': 12}
+40/60 sent, ok=40 fail=0 (283s) {'parser-6555977c89-4kf45': 23, 'parser-6555977c89-hz8hb': 17}
+50/60 sent, ok=50 fail=0 (353s) {'parser-6555977c89-4kf45': 28, 'parser-6555977c89-hz8hb': 22}
+60/60 sent, ok=60 fail=0 (424s) {'parser-6555977c89-4kf45': 33, 'parser-6555977c89-hz8hb': 27}
+FINAL: total=60 ok=60 fail=0 fail_rate=0.00% duration=424s
+SERVED-BY parser-6555977c89-4kf45: 33 (55.0% of ok)
+SERVED-BY parser-6555977c89-hz8hb: 27 (45.0% of ok)

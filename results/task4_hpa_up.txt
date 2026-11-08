@@ -1,0 +1,5 @@
+NAME     REFERENCE           TARGETS        MINPODS   MAXPODS   REPLICAS   AGE
+parser   Deployment/parser   cpu: 40%/70%   1         2         2          44m
+NAME                      READY   STATUS    RESTARTS   AGE
+parser-6555977c89-7hwm6   1/1     Running   0          31m
+parser-6555977c89-zx7b8   1/1     Running   0          2m40s

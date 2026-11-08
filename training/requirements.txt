@@ -1,0 +1,5 @@
+# CPU-only install on the Mac: pip install -r training/requirements.txt
+# (torch CPU wheel; no MPS — the assignment says CPU-only).
+torch==2.5.1
+transformers==4.47.1
+pyyaml==6.0.2

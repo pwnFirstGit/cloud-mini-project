@@ -1,0 +1,20 @@
+# Training config (Task 2). All six marked items are here: seed, learning
+# rate, batch size, epochs, max sequence length, library versions.
+# Fill library_versions from `pip freeze` after installing on the Mac —
+# the report must record the versions actually used.
+seed: 42
+learning_rate: 0.0002
+batch_size: 8
+epochs: 3
+max_seq_len: 256
+model: EleutherAI/pythia-70m
+train_file: datasets/v1/train.jsonl
+# Assignment cap: no more than 1,500 training examples — the first 1,500
+# records of the cleaned dataset. --subset N trains on the first N only.
+max_train_rows: 1500
+output_dir: models/v1
+library_versions:
+  torch: "2.5.1"
+  transformers: "4.47.1"
+  datasets: "4.8.5"
+  python: "3.13.16"

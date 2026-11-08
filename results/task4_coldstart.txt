@@ -1,0 +1,4 @@
+RUN 3: deleting parser-6555977c89-nmb7b
+RUN 3: new pod parser-6555977c89-ct7g4 cold_start=8.0s
+RUN 3 log saved
+FINAL: cold_start_times=[8.0, 8.0, 8.0] median=8.0s

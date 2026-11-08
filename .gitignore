@@ -1,0 +1,13 @@
+# Never commit weights, secrets, or generated data
+models/
+datasets/
+*.pth
+*.bin
+*.safetensors
+.env
+**/*secret*
+**/*creds*
+__pycache__/
+.venv/
+results/loadtest*
+.DS_Store

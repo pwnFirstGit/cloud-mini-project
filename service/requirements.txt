@@ -1,0 +1,7 @@
+# Pinned dependencies (Task 3). Install CPU-only torch from the PyTorch
+# CPU index so the image stays <= 2 GB (the default wheel drags in GPU libs).
+fastapi==0.115.6
+uvicorn==0.34.0
+boto3==1.35.90
+transformers==4.47.1
+torch==2.5.1

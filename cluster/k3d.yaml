@@ -1,0 +1,13 @@
+# k3d cluster: single server node (laptop). Host port 8080 -> 80 for the
+# Traefik Ingress used by /parse in Task 4 / Task 7. Traefik is built
+# into k3s and stays enabled by default — do not disable it.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: cs3081
+servers: 1
+agents: 0
+ports:
+  - port: 8080:80
+    nodeFilters:
+      - loadbalancer

@@ -1,0 +1,4 @@
+50/50 requests returned 200
+767803392
+CONTAINER ID   NAME              CPU %     MEM USAGE / LIMIT   MEM %     NET I/O         BLOCK I/O        PIDS
+33a0c875662d   student-service   0.29%     356.2MiB / 1GiB     34.79%    286MB / 361kB   3.36MB / 287MB   24

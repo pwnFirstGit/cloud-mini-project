@@ -1,0 +1,34 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Lint
+        run: |
+          pip install ruff
+          ruff check worker training service tests
+      - name: Unit tests
+        run: |
+          pip install pytest fastapi httpx
+          python -m pytest tests/ -q
+      - name: Model evaluation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install transformers==4.47.1 datasets==4.8.5 accelerate==1.15.0
+          gh release download v1 --pattern 'model-v1.tar.gz' --dir /tmp
+          mkdir -p models/v1
+          tar -xzf /tmp/model-v1.tar.gz -C models/v1
+          ls -l models/v1
+          python3 training/predict.py --model models/v1 --out results/predictions.jsonl
+          python3 student_kit/tools/score.py results/predictions.jsonl student_kit/data/validation.jsonl --out results/score.json
+      - name: Quality gate
+        run: |
+          python3 student_kit/tools/score.py results/predictions.jsonl student_kit/data/validation.jsonl --min-validity 95
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
