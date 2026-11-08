@@ -26,7 +26,15 @@ train:  ## Phase B: train student (SUBSET=50 smoke test supported)
 up:  ## Phases C/D: build + deploy everything from a fresh clone
 	k3d cluster create --config cluster/k3d.yaml
 	kubectl apply -f deploy/seaweedfs.yaml
+	kubectl wait --for=condition=ready pod -l app=seaweedfs -n data --timeout=180s
+	docker build -t student-service:v1 -f service/Dockerfile .
+	docker tag student-service:v1 parser:v1
+	k3d image import parser:v1 -c cs3081
+	kubectl create namespace app --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create secret generic s3-creds -n app --from-literal=access-key=test --from-literal=secret-key=test --dry-run=client -o yaml | kubectl apply -f -
+	./scripts/setup_s3.sh
 	kubectl apply -f deploy/app.yaml
+	kubectl rollout status deployment/parser -n app --timeout=300s
 
 test:  ## Unit tests (CI needs >= 3)
 	python3 -m pytest tests/ -q
@@ -35,4 +43,4 @@ eval:  ## Phase B: score predictions against validation (gate: validity >= 95)
 	python3 student_kit/tools/score.py results/predictions.jsonl student_kit/data/validation.jsonl --out results/score.json --min-validity 95
 
 loadtest:  ## Phase F: standard Locust run through the Ingress
-	locust -f student_kit/tools/locustfile.py --headless --users 4 --spawn-rate 4 --run-time 2m --host http://localhost:8080 --csv results/loadtest
+	LOADTEST_TEXTS=student_kit/data/validation.jsonl locust -f student_kit/tools/locustfile.py --headless --users 4 --spawn-rate 4 --run-time 2m --host http://localhost:8080 --csv results/loadtest
