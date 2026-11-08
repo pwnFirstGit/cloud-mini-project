@@ -4,7 +4,20 @@ Sequence-level knowledge distillation: Phi-3.5-mini-instruct (teacher)
 → EleutherAI/pythia-70m (student) parsing SLURP commands into 4-key JSON,
 deployed as a FastAPI service on a local k3d cluster with SeaweedFS.
 
-**Disclosure:** labelling and training ran on Kaggle GPU (T4 x2) via Hugging Face transformers, not Ollama/CPU — same model, prompt, temperature 0, seed 42.
+**Disclosure:** labelling and training ran on Kaggle GPU (T4 x2) via Hugging Face
+transformers, not Ollama/CPU — same model, prompt, temperature 0, seed 42.
+The repo code is CPU-based and `make train` runs on CPU. See report §1–2.
+
+## Commands — build, deploy, test, tear down
+
+```bash
+make cluster   # build: create k3d cluster + SeaweedFS, buckets datasets + models
+make up        # build + deploy: image, secret, S3 models, app.yaml, rollout (<=3 commands from a fresh clone)
+make test      # test: unit tests
+make eval      # test: score.py on validation, quality gate --min-validity 95
+make loadtest  # test: Locust, 4 users, 2 min, through Ingress http://localhost:8080
+make down      # tear down: delete cluster, stop Ollama
+```
 
 ## Machine rules (MacBook M1 Air, 8 GB RAM, 46 GB free)
 
@@ -30,7 +43,8 @@ make cluster   # Phase A: k3d + SeaweedFS, buckets datasets + models
 make label     # Phase A: teacher labelling (runs 1–3 hrs; run overnight)
 make clean     # Phase A: rejection rules (a)–(e) -> datasets/v1/train.jsonl
 make down      # stop cluster + Ollama before training
-make train     # Phase B: student training (CPU only, no MPS)
+make train     # Phase B: student training (repo code CPU only; the run in this
+               # submission used Kaggle GPU, see disclosure above)
 make train SUBSET=50   # smoke test — the assessor will run this
 make up        # Phase C/D: rebuild + deploy from a fresh clone (<=3 commands)
 ```
@@ -63,7 +77,7 @@ make up        # Phase C/D: rebuild + deploy from a fresh clone (<=3 commands)
 worker + `clean.py` · `training/` config + train script ·
 `service/` FastAPI app + Dockerfile · `deploy/` k8s manifests ·
 `network/` subnets + NACL · `.github/workflows/` CI ·
-`report/` 8-page outline · `results/` evidence (scores, load test, logs).
+`report/` report (6 pages, one section per task) · `results/` evidence (scores, load test, logs).
 
 Never commit model weights or secrets — weights live in SeaweedFS and as a
 GitHub Release asset only. Validation data is never trained on.
