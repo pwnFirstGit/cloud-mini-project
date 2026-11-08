@@ -1,0 +1,229 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1.9cm]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{xurl}
+\usepackage{float}
+\setlist{nosep,leftmargin=1.2em}
+\hypersetup{colorlinks=true,urlcolor=blue}
+\title{\vspace{-1.2cm}Sequence-Level Knowledge Distillation for SLURP Command Parsing\\ \large CS3081 Cloud Computing Mini Project --- Report}
+\author{Pawan Kumar Dangi (230103011)\\ Supervisor: Dr.\ Salam Michael Singh}
+\date{November 2026}
+\begin{document}
+\maketitle
+\vspace{-1.0cm}
+\noindent\textbf{Summary.}
+\begin{itemize}
+\item Teacher Phi-3.5-mini-instruct (3.8B) labels 3,000 SLURP commands; student EleutherAI/pythia-70m (70M) is fine-tuned on the first 1,500 cleaned labels and served as FastAPI on a local k3d cluster with SeaweedFS.
+\item Student: 100\% JSON validity, full-frame 29/100 --- beats the teacher (28/100) on every metric.
+\item All evidence is command output in \texttt{results/}. Repo: \url{https://github.com/pwnFirstGit/cloud-mini-project}.
+\item Disclosure (\S1--2): labelling and training ran on Kaggle GPU (same model, prompt, temperature 0, seed 42); repo code is CPU-based and \texttt{make train} runs on CPU.
+\end{itemize}
+
+\section{Task 1 --- Teacher labelling and cleaning}
+\subsection*{Setup}
+\begin{itemize}
+\item Cluster \texttt{cs3081} from \texttt{cluster/k3d.yaml}; SeaweedFS in namespace \texttt{data}; buckets \texttt{datasets} and \texttt{models}.
+\item \texttt{commands\_pool.jsonl} (3,000 commands, C0001--C3000) uploaded to \texttt{s3://datasets/}.
+\item Prompt in \texttt{prompts/teacher\_prompt.txt}: exactly four keys (\texttt{intent, date, time, place}), eight intents, copy-exactly slots, shortest phrase, \texttt{null} if unmentioned, never invent, output only JSON.
+\item Worker (\texttt{worker/}): reads \texttt{SHARD\_INDEX} / \texttt{SHARD\_COUNT}; takes lines whose 0-based line number mod 2 $=i$; writes \texttt{\{id, text, teacher\_raw\}} to \texttt{shard-$i$.jsonl} in \texttt{s3://datasets/teacher/}.
+\item Sharding: embarrassingly parallel, deterministic, no coordination; each shard is an independent S3 object; \texttt{clean.py} merges both shards in id order, so re-running it reproduces the same checksum.
+\end{itemize}
+\subsection*{Labelling and cleaning}
+\begin{itemize}
+\item In-cluster demo (40 commands): both demo Jobs completed 1/1 (2m57s, 3m7s), both pods ran together, shards 5,678 and 9,286 bytes, 20 lines each.
+\item Full labelling on Kaggle GPU (T4$\times$2) via Hugging Face transformers: v2 (chat template, stop tokens, batch 8, max 128 tokens) finished 3,000/3,000 in 19.6 min ($\approx$0.4 s/line); verification: 3,000 unique ids, none missing or extra.
+\end{itemize}
+\begin{table}[h]\centering\small
+\begin{tabular}{lrrrrrrr}
+\toprule
+Input & (a) invalid JSON & (b) wrong keys & (c) bad intent & (d) bad slot & duplicates & Kept \\
+\midrule
+3,000 & 869 & 0 & 1 & 26 & 0 & 2,104 \\
+\bottomrule
+\end{tabular}
+\caption{\texttt{make clean} counts, which balance: $869+0+1+26+0+2{,}104=3{,}000$. \texttt{train.sha256} is \texttt{5e1393\ldots ae4e3} (full hash in the file).}
+\end{table}
+\subsection*{Issues and corrections}
+\begin{itemize}
+\item \textbf{Ollama workers failed 6/6} with HTTP 500 under memory pressure. Correction: moved labelling to Kaggle GPU (HF transformers); model, prompt, greedy decoding, temperature 0 and seed 42 unchanged --- a serving-layer change only.
+\item \textbf{Labelling v1 was slow} ($\approx$13 s/line, model never stopped). Correction: v2 added chat template, stop tokens, batch 8, max 128 tokens --- 19.6 min for 3,000 lines.
+\item \textbf{869 rejections} are valid JSON wrapped in \texttt{json} markdown fences despite the no-markdown instruction. Correction: rejected under rule (a), teacher output not edited or recovered; training not blocked ($2{,}104>1{,}500$).
+\end{itemize}
+
+\section{Task 2 --- Training and evaluation}
+\subsection*{Training}
+\begin{itemize}
+\item Student: EleutherAI/pythia-70m --- suitable: small English causal LM, short JSON outputs, fits CPU memory; not instruction-tuned, so fine-tuning was required.
+\item Config (\texttt{training/config.yaml}): seed 42 (v2: seed 43), learning rate $2\times10^{-4}$, batch 8, epochs 3, max sequence length 256, first 1,500 cleaned rows, format \texttt{Command: <cmd> JSON: <teacher JSON>}.
+\item Library versions: torch 2.5.1, transformers 4.47.1, datasets 4.8.5, accelerate 1.15.0, Python 3.13.16.
+\item Loss (\texttt{training/loss.csv}, one value per epoch): v1 1.586 / 0.911 / 0.655; v2 1.591 / 0.900 / 0.649.
+\item \texttt{make train SUBSET=50} verified on Mac CPU in 705 s (21 steps).
+\item Models in S3: \texttt{s3://models/v1/} and \texttt{s3://models/v2/}; v1 also a GitHub Release asset, \texttt{models/v1/model.sha256} $=$ \texttt{ae0f8c16\ldots e08d} (full hash in the file).
+\end{itemize}
+\subsection*{Evaluation}
+\begin{table}[h]\centering\small
+\begin{tabular}{lrrrrrr}
+\toprule
+Model & JSON validity & Intent & Date & Time & Place & Full-frame \\
+\midrule
+Teacher (Phi-3.5) & 64 & 49 & 49 & 48 & 53 & 28 \\
+Untrained pythia-70m & 0 & 0 & 0 & 0 & 0 & 0 \\
+Student v1 (trained) & 100 & 67 & 72 & 82 & 77 & 29 \\
+\bottomrule
+\end{tabular}
+\caption{Validation (100 rows, \texttt{score.py}). Quality gate passes: $100 \ge 95$. Hidden-test gate passes: student full-frame $29 \ge 14$ (half the teacher's 28).}
+\end{table}
+\begin{itemize}
+\item Student beats the teacher on every metric; raw outputs and score reports for all three models are in \texttt{results/} (teacher's as \texttt{results/teacher\_validation.json}).
+\end{itemize}
+\subsection*{Distillation explanation}
+\begin{itemize}
+\item \textbf{Sequence-level:} student is trained on the teacher's generated sequences (the full JSON output) as targets.
+\item \textbf{Logit-based:} student is trained to match the teacher's token-level output distribution (soft probabilities over the vocabulary at each step).
+\item \textbf{Why logit-based is impossible here:} Ollama (and the HF text-generation path used) returns text only, no teacher logits.
+\item \textbf{One real limitation:} student only ever sees the teacher's greedy outputs, so it inherits the teacher's errors and formatting quirks and cannot recover token-level uncertainty.
+\end{itemize}
+\subsection*{Issues and corrections}
+\begin{itemize}
+\item \textbf{Training v1 loss was broken} (epoch 1: 141.55, epochs 2--3: exactly 0.0; transformers 5.20.2 fault) and eval was 0\% on every metric. Correction: pinned torch 2.5.1 + transformers 4.47.1, masked pad labels with -100 --- loss became sane (3.23 $\to$ 0.58).
+\item \textbf{Eval still 0\% despite good loss.} Root cause: greedy regex \texttt{\{.*\}} in \texttt{predict.py} grabbed through the last \texttt{\}}, including garbage after the valid JSON (model never learned EOS). Correction: non-greedy \texttt{\{.*?\}} in \texttt{predict.py} and \texttt{service/app.py} --- student then scored 100/67/72/82/77/29.
+\item \textbf{\texttt{make train SUBSET=50} loss on Mac was not credible} (3263 $\to$ 0, grad.\ norm NaN) because the Mac has transformers 5.20.2; repo pins 4.47.1, which gives the sane losses above.
+\end{itemize}
+
+\section{Task 3 --- Service}
+\subsection*{Endpoints and configuration}
+\begin{itemize}
+\item FastAPI, port 8000, \texttt{service/}: \texttt{POST /parse} returns only the 4-key JSON, with headers \texttt{X-Model-Version} and \texttt{X-Served-By} (pod name).
+\item \texttt{GET /healthz} returns 200; \texttt{GET /readyz} returns 503 until the model is loaded, 200 after.
+\item Config only from \texttt{MODEL\_URI}, \texttt{MODEL\_VERSION}, \texttt{S3\_ENDPOINT}, \texttt{MAX\_NEW\_TOKENS}=64, plus \texttt{FAULT\_INJECT}.
+\item Model + tokenizer downloaded from S3 at startup; credentials only from a Kubernetes Secret; no weights in the image.
+\item Schema check against \texttt{schema.json}: invalid output returns HTTP 500 with exactly \texttt{\{"error": "invalid\_model\_output"\}}; never broken JSON with HTTP 200.
+\item Image \texttt{student-service:v1}: 1.27 GB ($<$2 GB, CPU-only torch); every dependency version pinned.
+\end{itemize}
+\subsection*{Tests}
+\begin{itemize}
+\item 50 sequential requests at 1 CPU / 1 GiB: 50/50 HTTP 200, peak memory 767,803,392 bytes ($\approx$732 MiB, \texttt{results/task3\_50req.txt}).
+\item \texttt{FAULT\_INJECT=1}: \texttt{/parse} returned HTTP 500 with exactly that body and both headers (\texttt{results/task3\_fault\_inject.txt}).
+\item Cold-start log proves the S3 download: \texttt{Downloading model from s3://models/v1 via http://seaweedfs.data:8333} and \texttt{Downloaded model files from s3://models/v1 to /tmp/model} (\texttt{results/task4\_coldstart\_download.log}).
+\end{itemize}
+\subsection*{Issues and corrections}
+\begin{itemize}
+\item \textbf{\texttt{/parse} returned 500 for every command} at first. Root cause: Mac copy of \texttt{service/app.py} still had the greedy regex. Correction: fixed to non-greedy, rebuilt --- \texttt{/parse} 200.
+\item \textbf{Headers were missing.} Root cause: headers were set on the injected \texttt{response} param, lost when returning a \texttt{JSONResponse}. Correction: pass \texttt{headers=} to the returned \texttt{JSONResponse}.
+\item \textbf{First 50-request test was invalid} (peak 874 MiB against an unlimited container). Correction: re-ran at 1 CPU / 1 GiB --- 50/50, peak 732 MiB.
+\item \textbf{Logs showed no model download.} Correction: added print lines in \texttt{\_download\_model()} --- logs now show the S3 download explicitly.
+\end{itemize}
+
+\section{Task 4 --- Deployment and reliability}
+\subsection*{Deployment}
+\begin{itemize}
+\item Namespace \texttt{app}: Deployment \texttt{parser} (2 replicas, requests/limits 1 CPU / 1 GiB, liveness \texttt{/healthz}, readiness \texttt{/readyz}), Service, Ingress \texttt{/parse} (Traefik), HPA min 1, max 2, target 70\% CPU.
+\item \textbf{Limitation:} single-node laptop cluster proves nothing about multi-machine fault tolerance; all claims below are about this node only.
+\end{itemize}
+\subsection*{Reliability tests}
+\begin{itemize}
+\item \textbf{Rolling update v1$\to$v2} under 60-request load: 60/60 succeeded, 0\% failed, 479 s, \texttt{X-Model-Version: v2} confirmed (\texttt{results/task4\_update\_load.txt}).
+\item \textbf{Rollback} (\texttt{kubectl rollout undo}): 60/60, 0\% failed, 485 s, \texttt{X-Model-Version: v1} confirmed (\texttt{results/task4\_rollback\_load.txt}).
+\item \textbf{HPA:} scaled 1$\to$2 under load (42\%/70\%, second pod Running) and back to 1 at 0\% CPU; HPA load 60/60, 0\%, 436 s.
+\item \textbf{Delete-a-Pod:} replacement 1/1 Running in $\approx$2 min while the surviving pod kept serving; load 60/60, 0\%, 435 s ($\le$2\% target).
+\item \textbf{Cold start} (pod creation $\to$ Ready, from pod timestamps): 8.0, 8.0, 8.0 s, median \textbf{8.0 s}; logs show model download (see Task 3).
+\item \textbf{Load balancing} over 60 requests: replica 1 served 33 (55.0\%), replica 2 served 27 (45.0\%), both $\ge$30\%.
+\end{itemize}
+\subsection*{Issues and corrections}
+\begin{itemize}
+\item \textbf{Image mismatch:} \texttt{deploy/app.yaml} expects \texttt{parser:v1}, service image was \texttt{student-service:v1}. Correction: \texttt{docker tag student-service:v1 parser:v1} before import.
+\item \textbf{Missing secret:} \texttt{s3-creds} was only in the pipeline namespace. Correction: created the secret in namespace \texttt{app}.
+\item \textbf{Rollouts stalled on Insufficient memory} (Docker limited to 3 GB; two 1 GiB pods plus SeaweedFS leave no room for a third pod). Correction: deleted an old pod manually to free memory --- a limitation of this machine, not of the rollout mechanism.
+\item \textbf{First rolling-update probe (200 requests) was killed} (single \texttt{/parse} took 8.6 s, $\approx$30 min for 200). Correction: redone with 60 requests --- 60/60, 0\% fail.
+\item \textbf{Cold-start run 2 script crashed} (Mac/node clock-filter bug). Correction: recovered its time (8.0 s) from pod timestamps; run 3 completed normally.
+\end{itemize}
+
+\section{Task 5 --- Subnets and NACL}
+\subsection*{Subnets}
+\begin{itemize}
+\item From 10.20.0.0/16, largest first, smallest prefix that fits: app 10.20.0.0/22 (usable 10.20.0.1--10.20.3.254, 1,022 hosts); public 10.20.4.0/24 (254); data 10.20.5.0/25 (126); management 10.20.5.128/27 (30). Full table with broadcast addresses in \texttt{network/subnets.md}.
+\end{itemize}
+\subsection*{NACL rules}
+\begin{itemize}
+\item Inbound: rule 100 denies 198.51.100.0/24 before rules 120/130 allow TCP 80/443 from anywhere; TCP 22 only from the management subnet (rule 110); ephemeral replies (1024--65535) only from the app subnet (rule 140).
+\item Outbound: TCP 8000 only to the app subnet (rule 110); rule 115 denies all other traffic to 10.20.0.0/16; ephemeral replies to clients (rule 120); 198.51.100.0/24 denied outbound at rule 100.
+\item Check: \texttt{nacl\_sim.py --check} on the six sample packets passes 6/6 (100\%).
+\end{itemize}
+\subsection*{Explanation}
+\begin{itemize}
+\item A stateless NACL has no memory of connections, so unlike a stateful security group it cannot infer that a reply belongs to an allowed request --- every packet, including replies, is checked on its own, so reply traffic needs its own rules (ephemeral ports 1024--65535).
+\item Rule order matters: lowest number is checked first, so the deny for 198.51.100.0/24 (rule 100) fires before the allow rules for 80/443 (120/130) --- a deny only works if its number is lower than the allow it must override.
+\end{itemize}
+\subsection*{Issues and corrections}
+\begin{itemize}
+\item \textbf{First NACL missed the outbound deny} for the rest of 10.20.0.0/16. Correction: added rule 115 (deny all to 10.20.0.0/16) between the 8000 allow and the reply allow; re-checked 6/6.
+\end{itemize}
+
+\section{Task 6 --- CI/CD}
+\subsection*{Pipeline}
+\begin{itemize}
+\item Repo: \url{https://github.com/pwnFirstGit/cloud-mini-project} (branch \texttt{main}); \texttt{AI\_USE.md} records AI use.
+\item GitHub Actions, in order: lint (ruff, pyflakes only) $\to$ unit tests (8 tests) $\to$ model evaluation (downloads \texttt{model-v1.tar.gz} from Release v1, generates predictions, scores with \texttt{score.py}) $\to$ quality gate (\texttt{score.py --min-validity 95}, separate stage) $\to$ gitleaks scan.
+\item Release v1: \texttt{model.safetensors} (268.66 MiB, sha256 \texttt{ae0f8c16\ldots e08d}, matching \texttt{models/v1/model.sha256}) and \texttt{model-v1.tar.gz} (216.45 MiB, sha256 \texttt{bf727d16\ldots 3aab}).
+\end{itemize}
+\subsection*{Results}
+\begin{itemize}
+\item Passing run: \url{https://github.com/pwnFirstGit/cloud-mini-project/actions/runs/42517471730} (2m54s) --- evaluation wrote 100 predictions, JSON validity 100.0, intent 67, date 72, time 82, place 77; gate passed, gitleaks reported nothing.
+\item Deliberate failing run: \url{https://github.com/pwnFirstGit/cloud-mini-project/actions/runs/42519101278} (branch \texttt{ci-fail-demo}, 3m0s) --- untrained pythia-70m scores 0\% validity, gate fails as intended.
+\item \texttt{make up} verified from the repo: creates cluster, SeaweedFS, builds/imports image, creates \texttt{app} namespace and \texttt{s3-creds} secret, uploads models to S3, applies \texttt{deploy/app.yaml}, rollout succeeds with 2 replicas; \texttt{/parse} then 200 with \texttt{X-Model-Version: v1}. \texttt{make down} deletes the cluster.
+\end{itemize}
+\subsection*{Issues and corrections}
+\begin{itemize}
+\item \textbf{CI lint failed twice:} first 12 errors (import sorting, unused noqa, etc.), then 17 E501 line-length errors. Correction: \texttt{ruff check --select F} (pyflakes only).
+\item \textbf{Release upload timed out} (HTTP 408). Correction: retry succeeded; checksums verified to match \texttt{models/v1/model.sha256} exactly.
+\item \textbf{\texttt{make up} failed at \texttt{kubectl wait}} (``no matching resources found'' --- pod did not exist yet). Correction: use \texttt{kubectl rollout status deployment/seaweedfs}.
+\item \textbf{\texttt{make up} was incomplete} (no image build/import, no secret, no model upload). Correction: added build/tag/import, secret via dry-run apply, and \texttt{scripts/setup\_s3.sh} (also uploads \texttt{commands\_pool.jsonl} to \texttt{s3://datasets/}).
+\end{itemize}
+
+\section{Task 7 --- Measurement, cost and SLO}
+\subsection*{Load test}
+\begin{itemize}
+\item Locust through the Ingress (\texttt{http://localhost:8080}, 4 users, 2 min).
+\item Run 1 (1 pod initially) failed: 19 requests, 16 failed (84\%), p50 30,000 ms, 12$\times$ HTTP 0 (30 s timeout) and 4$\times$ HTTP 502; second pod scaled up mid-run (992m CPU); one pod restarted once.
+\item Run 2 (2 pods Ready first) --- the reported standard run: 30 requests, 0 failed, average 15,248 ms, min 6,492 ms, max 20,580 ms, median 16,000 ms, throughput 0.25 req/s, p50 16,000 ms, p95 20,000 ms (\texttt{results/loadtest2\_stats.csv}); per-replica 16 and 14 requests.
+\item \texttt{kubectl top pods} during run 1: 992m CPU / 718 MiB and 240m / 496 MiB for the two pods.
+\item Cold start (Task 4): median 8.0 s.
+\end{itemize}
+\subsection*{Cost}
+\begin{itemize}
+\item From \texttt{rate\_card.json} (Rs. 3.50/vCPU-hour + Rs. 0.45/GiB-hour, billed on limits): 2 replicas $\times$ (1 CPU $\times$ 3.50 $+$ 1 GiB $\times$ 0.45) $=$ Rs. 7.90/hour.
+\item At 0.25 req/s $=$ 900 req/hour, cost per 1,000 requests $=$ \textbf{Rs. 8.78}.
+\end{itemize}
+\subsection*{SLO}
+\begin{itemize}
+\item \textbf{SLO:} 95\% of \texttt{/parse} requests return 200 within 20 s in any 2-minute window.
+\item \textbf{Error budget:} 5\% of requests (1.5 per 30-request window). Observed: 100\% success, p95 exactly 20 s --- SLO met, budget unused.
+\item \textbf{Issue:} p95 20 s exceeds the 5 s target in the assignment's Task 7 marking. Cause: CPU-bound, 64 tokens generated per request at 1 CPU. Improvement: reduce \texttt{MAX\_NEW\_TOKENS}, raise CPU limit, faster inference.
+\end{itemize}
+\subsection*{Review table}
+\begin{table}[H]\centering\small
+\setlength{\tabcolsep}{4pt}\begin{tabular}{p{2.2cm}p{3.4cm}p{4.0cm}p{4.0cm}}
+\toprule
+Component & Evidence (measured) & Limitation found & Improvement proposed \\
+\midrule
+Data and storage & 3,000 labelled; 2,104 kept; train.sha256 5e1393\ldots ae4e3 & 869 (29\%) rejected as fenced JSON & Stricter prompt / stop tokens; validate format at labelling time \\
+Model quality & Student full-frame 29 vs teacher 28; validity 100 vs 64 & Intent 67, date 72 --- a third of frames still wrong & More training data; larger student; better teacher prompt \\
+Latency and throughput & p50 16,000 ms, p95 20,000 ms, 0.25 req/s & p95 20 s exceeds the 5 s target; CPU-bound, 64 tokens & Reduce MAX\_NEW\_TOKENS; raise CPU limit; faster inference \\
+Resource utilisation & Peak 732 MiB at 1 GiB limit; 992m CPU under load & 3 GB Docker: no room for a third pod during rollout & Raise Docker memory; use maxSurge 0 \\
+Reliability and recovery & Cold start median 8.0 s; delete-a-pod load 60/60, 0\% fail & Single node: no multi-machine fault tolerance & Multi-node cluster; pod disruption budgets \\
+Security and cost & Cost Rs. 8.78 per 1,000 req; NACL 6/6 & Test credentials in Secret; no TLS or auth on /parse & Real secrets via vault; TLS on Ingress; API auth \\
+\bottomrule
+\end{tabular}
+\caption{Review table, as specified in the assignment: every Evidence cell carries a measured number.}
+\end{table}
+
+\vspace{-0.3cm}
+\noindent\textbf{Conclusion.}
+\begin{itemize}
+\item All seven tasks are complete with measured evidence; student beats its teacher; service and deployment behave as specified on one node; CI gates the model.
+\item Main limits: single-node fault tolerance, 3 GB Docker memory (rollouts need manual pod deletion), CPU-bound latency ($\approx$15 s p50 under load).
+\end{itemize}
+\end{document}
