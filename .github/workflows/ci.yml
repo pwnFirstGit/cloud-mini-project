@@ -10,7 +10,7 @@ jobs:
       - name: Lint
         run: |
           pip install ruff
-          ruff check worker training service tests
+          ruff check --select E,F worker training service tests
       - name: Unit tests
         run: |
           pip install pytest fastapi httpx
