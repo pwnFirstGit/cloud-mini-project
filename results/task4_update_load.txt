@@ -1,0 +1,2 @@
+50/60 sent, ok=50 fail=0 (408s)
+FINAL: total=60 ok=60 fail=0 fail_rate=0.00%  duration=479s
