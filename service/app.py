@@ -36,6 +36,7 @@ tokenizer = None
 
 def _download_model() -> str:
     bucket, _, prefix = MODEL_URI.replace("s3://", "").partition("/")
+    print(f"Downloading model from {MODEL_URI} via {S3_ENDPOINT}", flush=True)
     s3 = boto3.client("s3", endpoint_url=S3_ENDPOINT,
                       aws_access_key_id=os.environ["S3_ACCESS_KEY"],
                       aws_secret_access_key=os.environ["S3_SECRET_KEY"])
@@ -46,7 +47,9 @@ def _download_model() -> str:
         dest = os.path.join(local, os.path.relpath(key, prefix))
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         s3.download_file(bucket, key, dest)
+    print(f"Downloaded model files from {MODEL_URI} to {local}", flush=True)
     return local
+    print(f"Downloaded model files from {MODEL_URI} to {local}", flush=True)
 
 
 @app.on_event("startup")

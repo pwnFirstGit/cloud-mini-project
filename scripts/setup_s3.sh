@@ -7,6 +7,9 @@ trap "kill $PF_PID 2>/dev/null || true" EXIT
 sleep 5
 aws --endpoint-url http://localhost:8333 s3 mb s3://datasets || true
 aws --endpoint-url http://localhost:8333 s3 mb s3://models || true
+if [ -f student_kit/data/commands_pool.jsonl ]; then
+  aws --endpoint-url http://localhost:8333 s3 cp student_kit/data/commands_pool.jsonl s3://datasets/commands_pool.jsonl
+fi
 if [ ! -f models/v1/model.safetensors ]; then
   echo "Downloading model v1 from GitHub Release..."
   gh release download v1 --pattern 'model-v1.tar.gz' --dir /tmp

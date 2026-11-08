@@ -1,0 +1,41 @@
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+Downloading model from s3://models/v1 via http://seaweedfs.data:8333
+Downloaded model files from s3://models/v1 to /tmp/model
+The `GPTNeoXSdpaAttention` class is deprecated in favor of simply modifying the `config._attn_implementation`attribute of the `GPTNeoXAttention` class! It will be removed in v4.48
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     10.42.0.1:57520 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:57528 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:57536 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:51002 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:51006 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:51020 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:33462 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.9:60446 - "POST /parse HTTP/1.1" 200 OK
+INFO:     10.42.0.1:33464 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:33466 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:51962 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:51970 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:51972 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:60420 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:60424 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:60430 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:45900 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:45902 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:45918 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:56494 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:56508 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:56524 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:58426 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:58428 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:58440 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:49428 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:49436 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:49450 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:38816 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:38830 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:38834 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:39998 - "GET /readyz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:40002 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     10.42.0.1:40014 - "GET /readyz HTTP/1.1" 200 OK

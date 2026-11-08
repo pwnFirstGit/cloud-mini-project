@@ -1,8 +1,10 @@
 # Cloud Computing (CS3081) — Mini Project
 
-Sequence-level knowledge distillation: Phi-3.5-mini-instruct (teacher, Ollama)
+Sequence-level knowledge distillation: Phi-3.5-mini-instruct (teacher)
 → EleutherAI/pythia-70m (student) parsing SLURP commands into 4-key JSON,
 deployed as a FastAPI service on a local k3d cluster with SeaweedFS.
+
+**Disclosure:** labelling and training ran on Kaggle GPU (T4 x2) via Hugging Face transformers, not Ollama/CPU — same model, prompt, temperature 0, seed 42.
 
 ## Machine rules (MacBook M1 Air, 8 GB RAM, 46 GB free)
 

@@ -7,5 +7,5 @@
   teacher output was manually edited — `worker/clean.py` only applies the
   documented rejection rules (a)–(e).
 - All measurements in the report (scores, latencies, costs, cold-start
-  times) are from runs on the author's MacBook M1 Air, not from AI.
+  times) are from real runs, not from AI: latencies/costs/cold-start from the MacBook M1 Air; labelling/training ran on Kaggle GPU (T4 x2), same model/prompt/temp 0/seed 42.
 - No AI-generated text is presented as measured results.
